@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Navbar from 'componentes/common/Navbar';
+import Navbar from 'components/common/Navbar';
 
-function Home() {
+function Home({ activeNavTab, setActiveNavTab }) {
   return (
     <>
-      <Navbar />
+      <Navbar activeNavTab={activeNavTab} setActiveNavTab={setActiveNavTab} />
       <Link to="/main">
         <button>메인 페이지</button>
       </Link>

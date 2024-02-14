@@ -2,21 +2,21 @@ import React from 'react';
 import defaultUser from 'assets/defaultUser.png';
 import styled from 'styled-components';
 
-const SponsorList = ({ username, receiptPrice, profile }) => {
+const SponsorItem = ({ profile, username, receiptPrice }) => {
   return (
     <>
       <CommentWrapper>
         <UserImg src={profile ?? defaultUser} alt="User Profile" />
         <CommentText>
-          {username ?? '유저 닉네임'}님이 <FontWeight>{receiptPrice.toLocaleString('ko-KR')}원 펀딩</FontWeight>해
-          주셨어요.
+          {username ?? '유저 닉네임'}님이 &nbsp; <FontWeight>{receiptPrice.toLocaleString('ko-KR')}원 펀딩</FontWeight>
+          해 주셨어요.
         </CommentText>
       </CommentWrapper>
     </>
   );
 };
 
-export default SponsorList;
+export default SponsorItem;
 
 const CommentWrapper = styled.div`
   display: flex;
@@ -45,8 +45,3 @@ const CommentText = styled.p`
 const FontWeight = styled.p`
   font-weight: bold;
 `;
-
-// const TimeText = styled.time`
-//   margin: 0 0 0 90px;
-//   color: #646464;
-// `;

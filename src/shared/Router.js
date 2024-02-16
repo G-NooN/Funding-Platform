@@ -1,7 +1,6 @@
 // Router.js
 import { useState } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import Home from 'pages/Home';
 import Login from 'pages/Login';
 import Main from 'pages/Main';
 import MyPage from 'pages/MyPage';
@@ -18,10 +17,6 @@ const Router = () => {
       <Routes>
         <Route
           path="/"
-          element={<Home activeNavTab={activeNavTab} setActiveNavTab={setActiveNavTab} isMainPage={false} />}
-        />
-        <Route
-          path="/main"
           element={
             <Main
               activeNavTab={activeNavTab}

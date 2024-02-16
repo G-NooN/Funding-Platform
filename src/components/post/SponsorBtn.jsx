@@ -1,14 +1,28 @@
 import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { auth, db } from '../../firebase';
 import styled from 'styled-components';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query } from 'firebase/firestore';
+import SponsorTimeLine from 'components/SponsorTimeLine';
+import SponsorPercent from 'components/SponsorPercent';
 import HeartButton from './HeartButton';
 
-const SponsorBtn = () => {
+const SponsorBtn = ({ activeNavTab, projects, receiptPrice, setReceiptPrice }) => {
   const user = auth.currentUser;
-
   const [isAdd, setIsAdd] = useState(false);
-  const [receiptPrice, setReceiptPrice] = useState(0);
+  const [totalPrice, setTotalPrice] = useState(0);
+
+  const id = useParams().id;
+
+  // projects 배열에서 현재 페이지의 프로젝트 가져오기
+  const foundProject = projects.find((project) => project.id === id);
+
+  // 현재 페이지의 프로젝트가 없는 경우 처리
+  if (!foundProject) {
+    return <div>프로젝트를 찾을 수 없습니다.</div>;
+  }
+
+  const { startDate, endDate } = foundProject;
 
   const onChangeReceipt = (event) => {
     const rawValue = event.target.value;
@@ -23,7 +37,7 @@ const SponsorBtn = () => {
     try {
       setIsAdd(true);
       await addDoc(collection(db, 'sponsorUser'), {
-        receiptPrice,
+        donatedPrice: receiptPrice,
         username: user.displayName,
         userId: user.uid,
         profile: user.photoURL,
@@ -32,38 +46,91 @@ const SponsorBtn = () => {
       });
     } catch (e) {
       console.log(e);
+    }
+    try {
+      const projectQuery = query(collection(db, 'sponsorUser'));
+      const snapshot = await getDocs(projectQuery);
+
+      let total = 0;
+      snapshot.forEach((doc) => {
+        const donatedPrice = doc.data().donatedPrice;
+        total += donatedPrice;
+      });
+
+      setTotalPrice(total);
     } finally {
       setIsAdd(false);
     }
     setReceiptPrice('');
   };
 
+  // 날짜 형식 변경 함수
+  const formattedDate = (date) => {
+    return new Date(date).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
   return (
-    <>
-      <Achieve>
-        <div>
-          <PointText color="var(--main-color)">98%&nbsp;</PointText>달성
-        </div>
-        <div>
-          <PointText color="var(--sub-color)">123123&nbsp;</PointText>원 달성
-        </div>
-      </Achieve>
-      <PriceForm onSubmit={handleOnSubmit}>
-        <Input
-          onChange={onChangeReceipt}
-          value={receiptPrice.toLocaleString('ko-KR')}
-          placeholder="후원 금액을 입력해주세요."
-        />
-        <button type="submit">후원하기</button>
-        {/* <HeartButton /> */}
-      </PriceForm>
-    </>
+    <SponsorContainer>
+      <FundingPeriod>
+        <BoldText>펀딩 기간</BoldText> &nbsp;&nbsp; {`${formattedDate(startDate)} ~ ${formattedDate(endDate)}`}
+      </FundingPeriod>
+      {activeNavTab === 'inProgress' ? (
+        <>
+          <Achieve>
+            <div>
+              <SponsorPercent foundProject={foundProject} totalPrice={totalPrice} />
+            </div>
+            <div>
+              <SponsorTimeLine totalPrice={totalPrice} setTotalPrice={setTotalPrice} />
+            </div>
+          </Achieve>
+          <PriceForm onSubmit={handleOnSubmit}>
+            <input
+              onChange={onChangeReceipt}
+              value={receiptPrice.toLocaleString('ko-KR')}
+              placeholder="후원 금액을 입력해주세요."
+            />
+            <button type="submit">후원하기</button>
+            <HeartButton />
+          </PriceForm>
+        </>
+      ) : (
+        <>
+          <Achieve>
+            <div>
+              <SponsorPercent foundProject={foundProject} totalPrice={totalPrice} />
+            </div>
+            <div>
+              <SponsorTimeLine totalPrice={totalPrice} setTotalPrice={setTotalPrice} />
+            </div>
+          </Achieve>
+          <CompletedText>
+            <p>펀딩이 종료되었습니다.</p>
+          </CompletedText>
+        </>
+      )}
+    </SponsorContainer>
   );
 };
 
 export default SponsorBtn;
 
-const Input = styled.input``;
+const SponsorContainer = styled.div`
+  margin-top: 50px;
+`;
+
+const FundingPeriod = styled.div`
+  display: flex;
+  font-size: 16px;
+`;
+
+const BoldText = styled.p`
+  font-weight: 600;
+`;
 
 const Achieve = styled.div`
   display: flex;
@@ -75,11 +142,6 @@ const Achieve = styled.div`
   & > div {
     margin-bottom: 10px;
   }
-`;
-
-const PointText = styled.span`
-  color: ${(props) => props.color};
-  font-size: 24px;
 `;
 
 const PriceForm = styled.form`
@@ -111,4 +173,11 @@ const PriceForm = styled.form`
       background-color: #ff3300f6;
     }
   }
+`;
+
+const CompletedText = styled.div`
+  margin: 0px auto;
+  color: var(--sub-color);
+  font-size: 18px;
+  font-weight: 600;
 `;

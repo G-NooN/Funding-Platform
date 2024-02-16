@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { auth, db, storage } from '../firebase';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import styled from 'styled-components';
@@ -6,20 +6,38 @@ import Navbar from 'components/common/Navbar';
 import defaultUser from 'assets/defaultUser.png';
 import { IoIosSettings } from 'react-icons/io';
 import { BsPencilSquare } from 'react-icons/bs';
-import ProductsList from 'data/products.json';
 import { collection, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
 const MyPage = ({ activeNavTab, setActiveNavTab }) => {
   const user = auth.currentUser;
-  const [productLists, setProductLists] = useState(ProductsList);
+
+  const [projects, setProject] = useState([]);
   const [upLoadImg, setUpLoadImg] = useState(user?.photoURL);
+  const [userImg, setUserImg] = useState();
   const fileInput = useRef(null);
   const [isEditingImg, setIsEditingImg] = useState(false);
   const [userNickName, setUserNickName] = useState(user?.displayName);
   const [isEditingName, setIsEditingName] = useState(false);
   const [activeMyTab, setActiveMyTab] = useState('내가 등록한 펀딩');
   const [pageScroll, setPageScroll] = useState(8);
+  const navigate = useNavigate();
+
+  // DB에서 데이터 가져오기
+  useEffect(() => {
+    const getProjects = async () => {
+      const projectQuery = query(collection(db, 'projects'));
+      const querySnapshot = await getDocs(projectQuery);
+
+      const projectList = querySnapshot.docs.map((doc) => {
+        return doc.data();
+      });
+      setProject(projectList);
+    };
+
+    getProjects();
+  }, []);
 
   // --- 프로필사진 등록 ----//
 
@@ -121,12 +139,12 @@ const MyPage = ({ activeNavTab, setActiveNavTab }) => {
     default:
       break;
   }
-
+  console.log(projects);
   return (
     <>
       <Navbar activeNavTab={activeNavTab} setActiveNavTab={setActiveNavTab} />
       <UserInfoWrapper>
-        <UserImg src={user?.photoURL ?? defaultUser} />
+        <UserImg src={user?.photoURL ?? defaultUser} alt={user?.photoURL} />
         <input
           type="file"
           style={{ display: 'none' }}
@@ -188,25 +206,21 @@ const MyPage = ({ activeNavTab, setActiveNavTab }) => {
       </nav>
       <main>
         <CardContainer>
-          {productLists &&
-            productLists.productList
-              .filter(
-                (productLists) =>
-                  (activeMyTab === '내가 등록한 펀딩' && productLists.myPageState === 'register') ||
-                  (activeMyTab === '스크랩한 펀딩' && productLists.myPageState === 'clipping') ||
-                  (activeMyTab === '알림 신청한 펀딩' && productLists.myPageState === 'notificationSettings') ||
-                  (activeMyTab === '내가 후원한 펀딩' && productLists.myPageState === 'support')
-              )
-              .slice(0, pageScroll)
-              .map((product) => (
-                <CardLists key={product.id}>
-                  <ProductImg src={product.image} alt="상품 이미지" />
-                  <ProductName>{product.name}</ProductName>
-                  <div>
-                    <ProductAchievementRate>{product.achievementRate}</ProductAchievementRate> 달성
-                  </div>
-                </CardLists>
-              ))}
+          {projects
+            .filter(
+              (project) =>
+                (activeMyTab === '내가 등록한 펀딩' && project.isRegistered === true) ||
+                (activeMyTab === '스크랩한 펀딩' && project.isScrapped === true) ||
+                (activeMyTab === '알림 신청한 펀딩' && project.isNotificated === true) ||
+                (activeMyTab === '내가 후원한 펀딩' && project.isSponsored === true)
+            )
+            .slice(0, pageScroll)
+            .map((project) => (
+              <CardLists key={project.id} onClick={() => navigate(`/post/${project.id}`)}>
+                <ProductImg src={project.mainImage} alt="상품 이미지" />
+                <ProductName>{project.title}</ProductName>
+              </CardLists>
+            ))}
         </CardContainer>
         <MoreMyBtnWrapper>
           <MoreMyBtn onClick={() => MoreBtn()}>{buttonText}</MoreMyBtn>
@@ -231,9 +245,10 @@ const UserInfoWrapper = styled.div`
 
 const NavTep = styled.ul`
   display: flex;
+  justify-content: space-evenly;
+  gap: 10px;
   border-bottom: 2px solid #e6e6e6;
   margin-bottom: 35px;
-  gap: 20px;
   font-weight: bold;
   font-size: 20px;
 `;
@@ -241,7 +256,7 @@ const NavTep = styled.ul`
 const NavTepLists = styled.li`
   color: #878f97;
   padding: 1rem;
-  ${(props) => (props.$activeTab === props.children ? 'border-bottom: 2px solid var(--main-color);' : 'none')};
+  ${(props) => (props.$activeTab === props.children ? 'border-bottom: 3px solid var(--main-color);' : 'none')};
   ${(props) => (props.$activeTab === props.children ? 'color:black' : 'none')};
   cursor: pointer;
 `;
@@ -254,14 +269,20 @@ const CardContainer = styled.div`
 `;
 
 const CardLists = styled.div`
-  border: 2px solid #dfdfdf;
-  border-radius: 9px;
-  width: 280px;
-  height: 200px;
-  padding: 1rem;
-  gap: 10px;
   display: flex;
   flex-direction: column;
+  gap: 30px;
+  padding: 20px;
+  border: 2px solid #dfdfdf;
+  border-radius: 9px;
+  width: 270px;
+  height: 270px;
+  background-color: #ffffff84;
+  cursor: pointer;
+
+  &:hover {
+    box-shadow: 5px 5px 5px lightgray;
+  }
 `;
 
 const UserImg = styled.img`
@@ -335,18 +356,14 @@ const CancelBtn = styled.button`
 
 const ProductImg = styled.img`
   width: 100%;
-  height: 200px;
+  height: 100%;
   overflow: hidden;
 `;
 
 const ProductName = styled.h2`
-  font-size: 1rem;
-`;
-
-const ProductAchievementRate = styled.span`
-  font-size: 1rem;
-  color: var(--sub-color);
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 600;
+  margin-left: 10px;
 `;
 
 const ImgBtnWrapper = styled.div`

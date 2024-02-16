@@ -4,7 +4,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
-function Logout({ onLogout }) {
+function Logout({ onLogout, setActiveNavTab }) {
   const navigate = useNavigate();
 
   const logOut = async (event) => {
@@ -19,7 +19,8 @@ function Logout({ onLogout }) {
         await signOut(auth);
         alert('로그아웃 되었습니다.');
         onLogout();
-        navigate('/main');
+        setActiveNavTab('inProgress');
+        navigate('/');
       } catch (error) {
         console.log('Error with logout', error);
       }

@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Navbar from 'components/common/Navbar';
 import styled from 'styled-components';
-import ProductsList from 'data/products.json';
 import SponsorBtn from 'components/post/SponsorBtn';
-import SponsorItem from 'components/post/SponsorItem';
 import ScheduledNotification from 'components/post/ScheduledNotification';
 import ScheduledComments from 'components/post/ScheduledComments';
-import CompletedNotification from 'components/post/CompletedNotification';
-import CompletedComments from 'components/post/CompletedComments';
+import { useParams } from 'react-router';
+import { collection, getDocs, query, updateDoc, doc } from '@firebase/firestore';
+import { db } from '../firebase';
+import SponsorList from 'components/post/SponsorList';
 
 const ProjectIntroduction = styled.div`
   display: flex;
@@ -26,11 +26,12 @@ const ImageBox = styled.div`
   position: relative;
 
   & img {
-    background-size: 100%;
-    background-repeat: no-repeat;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 7px;
   }
 `;
-
 const TitleBox = styled.div`
   margin-left: 60px;
   width: 504px;
@@ -94,37 +95,68 @@ const ProjectInfoContainer = styled.div`
 
 function Post({ activeNavTab, setActiveNavTab }) {
   const [activePostTab, setActivePostTab] = useState('project');
-  const [productLists, setProductLists] = useState(ProductsList);
+  const [projects, setProject] = useState([]);
+  const id = useParams().id;
+  const [receiptPrice, setReceiptPrice] = useState(0);
 
-  const productIdToDisplay = 67;
-  const productToDisplay = productLists.productList.find((product) => product.id === productIdToDisplay);
+  // DB에서 데이터 가져오기
+  useEffect(() => {
+    const getProjects = async () => {
+      const projectQuery = query(collection(db, 'projects'));
+      const querySnapshot = await getDocs(projectQuery);
+
+      const projectList = querySnapshot.docs.map((doc) => {
+        return doc.data();
+      });
+      setProject(projectList);
+    };
+
+    getProjects();
+  }, []);
+
+  // 데이터를 로딩중일 때
+  if (projects.length <= 0) {
+    return <div>로딩중입니다..!</div>;
+  }
+
+  // id에 해당하는 데이터 추출
+  const foundProject = projects.find((project) => project.id === id);
+
+  // 파이어베이스 아이디와 post id 값이 같은 것만 userComment 출력
+  // id === foundProject.id;
+
+  // quill.js 결과 HTML 파싱
+  const dangerousHTML = { __html: foundProject.content };
 
   // 오픈 알림 신청
-  const handleApplyOpenNotification = async (productIdToDisplay) => {
-    const updatedProductList = productLists.productList.map((product) => {
-      if (product.id === productIdToDisplay) {
-        return { ...product, myPageState: 'notificationSettings' };
+  const handleApplyOpenNotification = async (projectIdToDisplay) => {
+    await updateDoc(doc(db, 'projects', projectIdToDisplay), { isNotificated: true });
+
+    const updatedProjects = projects.map((project) => {
+      if (project.id === projectIdToDisplay) {
+        return { ...project, isNotificated: true };
       }
-      return product;
+      return project;
     });
 
-    setProductLists({ ...productLists, productList: updatedProductList });
+    setProject(updatedProjects);
 
-    console.log(`프로젝트 ID ${productIdToDisplay}에 대한 오픈 알림 신청`);
+    console.log(`프로젝트 ID ${projectIdToDisplay}에 대한 오픈 알림 신청`);
   };
 
   // 오픈 알림 취소
-  const handleCancelOpenNotification = async (productIdToDisplay) => {
-    const updatedProductList = productLists.productList.map((product) => {
-      if (product.id === productIdToDisplay) {
-        return { ...product, myPageState: 'schedule' };
+  const handleCancelOpenNotification = async (projectIdToDisplay) => {
+    await updateDoc(doc(db, 'projects', projectIdToDisplay), { isNotificated: false });
+    const updatedProjects = projects.map((project) => {
+      if (project.id === projectIdToDisplay) {
+        return { ...project, isNotificated: false };
       }
-      return product;
+      return project;
     });
 
-    setProductLists({ ...productLists, productList: updatedProductList });
+    setProject(updatedProjects);
 
-    console.log(`Cancel Open Notification for Project ID: ${productIdToDisplay}`);
+    console.log(`프로젝트 ID ${projectIdToDisplay}에 대한 오픈 알림 취소`);
   };
 
   const handleTabClick = (tab) => {
@@ -136,24 +168,31 @@ function Post({ activeNavTab, setActiveNavTab }) {
       <Navbar activeNavTab={activeNavTab} setActiveNavTab={setActiveNavTab} />
       <ProjectIntroduction>
         <ImageBox>
-          <img src="assets" alt="" />
+          <img src={foundProject.mainImage} width="500px" height="298px" alt={foundProject.title} />
         </ImageBox>
+
         <TitleBox>
-          <Title>{productToDisplay.name}</Title>
-          <SubTitle>
-            프로젝트 설명프로젝트 설명프로젝트 설명프로젝트 설명프로젝트 설명프로젝트 설명 프로젝트 설명 프로젝트
-            설명프로젝트 설명프로젝트 설명프로설명프로젝트 설명프로설명프로젝트 설명프로명프로명프로명프로명프로
-          </SubTitle>
+          <Title>{foundProject.title}</Title>
+          <SubTitle>{foundProject.summary}</SubTitle>
 
-          {/* <ScheduledNotification
-            productIdToDisplay={67}
-            onApplyOpenNotification={handleApplyOpenNotification}
-            onCancelOpenNotification={handleCancelOpenNotification}
-          /> */}
-
-          {/* <SponsorBtn /> */}
-
-          <CompletedNotification />
+          {activeNavTab === 'scheduled' ? (
+            <>
+              <ScheduledNotification
+                projects={projects}
+                onApplyOpenNotification={handleApplyOpenNotification}
+                onCancelOpenNotification={handleCancelOpenNotification}
+              />
+            </>
+          ) : (
+            <>
+              <SponsorBtn
+                activeNavTab={activeNavTab}
+                projects={projects}
+                receiptPrice={receiptPrice}
+                setReceiptPrice={setReceiptPrice}
+              />
+            </>
+          )}
         </TitleBox>
       </ProjectIntroduction>
       <PostTab>
@@ -167,23 +206,17 @@ function Post({ activeNavTab, setActiveNavTab }) {
       <Hr />
       <BottomBox>
         {activePostTab === 'project' ? (
-          <ProjectInfoContainer>
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Maiores laborum ullam reprehenderit repellendus
-            eius veritatis voluptatibus exercitationem mollitia inventore delectus culpa nulla ducimus enim, porro
-            reiciendis! Animi ratione et adipisci. Quod amet consequuntur voluptatibus aliquid cum alias molestias
-            ratione fugit soluta quis sit, minima praesentium. Quia sint iusto repellat maiores, a, blanditiis facere
-            magni numquam dolores necessitatibus, sequi ipsam aperiam. Neque optio pariatur deleniti facere aliquid odio
-            soluta reiciendis nesciunt necessitatibus ullam nisi in voluptatum animi earum voluptates voluptate, dolor
-            laborum repellat fuga officiis ad minima tempora rerum. Maxime, sunt! Autem molestias magnam sunt officia
-            unde, quaerat incidunt ullam deserunt minus tenetur maiores corrupti! Aspernatur, itaque doloribus labore
-            esse
-          </ProjectInfoContainer>
+          <ProjectInfoContainer dangerouslySetInnerHTML={dangerousHTML} />
         ) : (
-          // <ScheduledComments />
-
-          // <SponsorItem />
-
-          <CompletedComments />
+          <>
+            {activeNavTab === 'scheduled' && <ScheduledComments />}
+            {activeNavTab === 'inProgress' && (
+              <>
+                <SponsorList />
+              </>
+            )}
+            {activeNavTab === 'completed' && <SponsorList />}
+          </>
         )}
       </BottomBox>
     </>

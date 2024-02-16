@@ -1,5 +1,6 @@
 // App.js
-import React, { useEffect } from 'react';
+import React from 'react';
+
 import Router from 'shared/Router';
 import { app } from './firebase';
 import GlobalStyle from 'styles/GlobalStyle';

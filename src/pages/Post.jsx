@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
+import React, { useEffect, useState } from 'react';
 import Navbar from 'components/common/Navbar';
-import DefaultUser from 'assets/defaultUser.png';
-import HeartButton from 'components/HeartButton';
+import styled from 'styled-components';
+import SponsorBtn from 'components/post/SponsorBtn';
+import ScheduledNotification from 'components/post/ScheduledNotification';
+import ScheduledComments from 'components/post/ScheduledComments';
+import { useParams } from 'react-router';
+import { collection, getDocs, query, updateDoc, doc } from '@firebase/firestore';
+import { db } from '../firebase';
+import SponsorList from 'components/post/SponsorList';
 
 const ProjectIntroduction = styled.div`
   display: flex;
@@ -16,83 +21,61 @@ const ImageBox = styled.div`
   border: 2px solid #dfdfdf;
   background-color: white;
   border-radius: 9px;
-  width: 534px;
-  height: 298px;
+  width: 500px;
+  height: 375px;
   position: relative;
 
   & img {
-    background-size: 100%;
-    background-repeat: no-repeat;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 7px;
   }
 `;
 const TitleBox = styled.div`
   margin-left: 60px;
-  width: 500px;
+  width: 504px;
 `;
 
 const Title = styled.div`
   font-weight: bold;
-  font-size: 28px;
+  font-size: 30px;
+  line-height: 1.7;
   margin-bottom: 8px;
 `;
+
 const SubTitle = styled.div`
   color: #818181;
-  font-size: 15px;
+  font-size: 16px;
+  line-height: 1.5;
   margin-top: 16px;
-  line-height: 1.2;
-`;
-const Achieve = styled.div`
-  font-weight: bold;
-  font-size: 18px;
-  color: #464646;
-  margin-top: 30px;
-  & > div {
-    margin-bottom: 10px;
-  }
-`;
-
-const PointText = styled.span`
-  color: ${(props) => props.color};
-  font-size: 24px;
-`;
-const InProgress = styled.div`
-  display: flex;
-  align-items: center;
-  margin-top: 35px;
-
-  input {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    width: 200px;
-    font-size: 16px;
-    margin-right: 10px;
-  }
-  button {
-    padding: 10px 20px;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
-  }
-`;
-const SponsorBtn = styled.button`
-  background-color: #4caf50;
-
-  &:hover {
-    background-color: #45a049;
-  }
 `;
 
 const PostTab = styled.div`
   display: flex;
   justify-content: space-between;
   width: 350px;
-  margin: 60px auto;
+  margin: 80px auto;
   font-size: 24px;
   font-weight: bold;
+`;
+
+const TabItem = styled.div`
+  font-size: 24px;
+  font-weight: bold;
+  margin-top: 20px;
+  padding-bottom: 5px;
+  cursor: pointer;
+  color: ${(props) => (props.activePostTab ? 'black' : '#878f97')};
+  font-weight: ${(props) => (props.activePostTab ? 'bold' : 'bolder')};
+
+  border-bottom: ${(props) => (props.activePostTab ? '3px solid var(--main-color)' : 'none')};
+  margin-bottom: ${(props) => (props.activePostTab ? '-23px' : '0')};
+`;
+
+const Hr = styled.div`
+  border: 2px solid #e6e6e6;
+  margin-top: -60px;
 `;
 
 const BottomBox = styled.div`
@@ -103,54 +86,78 @@ const BottomBox = styled.div`
   flex-direction: column;
   justify-content: center;
 `;
-const ProjectInfoContainer = styled.div``;
 
-const Hr = styled.div`
-  border: 2px solid #e6e6e6;
-  margin-top: -40px;
-`;
-
-const TabItem = styled.div`
-  font-size: 24px;
-  font-weight: bold;
-  cursor: pointer;
-  color: ${(props) => (props.activePostTab ? 'black' : '#878f97')};
-  font-weight: ${(props) => (props.activePostTab ? 'bold' : 'normal')};
-
-  /* ${(props) => (props.$activePostTab === props.children ? 'border-bottom: 1px solid var(--main-color)' : 'none')} */
-  border-bottom: ${(props) => (props.activePostTab ? '4px solid var(--main-color)' : 'none')};
-  margin-bottom: ${(props) => (props.activePostTab ? '-23px' : '0')};
-`;
-
-const FontWeight = styled.span`
-  font-weight: bold;
-`;
-
-const CommentContainer = styled.div`
-  display: flex;
-  align-items: center;
-  border: 2px solid #dfdfdf;
-  width: 800px;
-  margin: 7px auto;
-  height: 70px;
-  border-radius: 30px;
-  background-color: white;
-`;
-
-const CommentImage = styled.img`
-  margin-left: 30px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  margin-right: 15px;
-`;
-
-const CommentText = styled.div`
+const ProjectInfoContainer = styled.div`
   font-size: 16px;
+  line-height: 1.8;
+  margin: 50px auto;
 `;
 
 function Post({ activeNavTab, setActiveNavTab }) {
   const [activePostTab, setActivePostTab] = useState('project');
+  const [projects, setProject] = useState([]);
+  const id = useParams().id;
+  const [receiptPrice, setReceiptPrice] = useState(0);
+
+  // DB에서 데이터 가져오기
+  useEffect(() => {
+    const getProjects = async () => {
+      const projectQuery = query(collection(db, 'projects'));
+      const querySnapshot = await getDocs(projectQuery);
+
+      const projectList = querySnapshot.docs.map((doc) => {
+        return doc.data();
+      });
+      setProject(projectList);
+    };
+
+    getProjects();
+  }, []);
+
+  // 데이터를 로딩중일 때
+  if (projects.length <= 0) {
+    return <div>로딩중입니다..!</div>;
+  }
+
+  // id에 해당하는 데이터 추출
+  const foundProject = projects.find((project) => project.id === id);
+
+  // 파이어베이스 아이디와 post id 값이 같은 것만 userComment 출력
+  // id === foundProject.id;
+
+  // quill.js 결과 HTML 파싱
+  const dangerousHTML = { __html: foundProject.content };
+
+  // 오픈 알림 신청
+  const handleApplyOpenNotification = async (projectIdToDisplay) => {
+    await updateDoc(doc(db, 'projects', projectIdToDisplay), { isNotificated: true });
+
+    const updatedProjects = projects.map((project) => {
+      if (project.id === projectIdToDisplay) {
+        return { ...project, isNotificated: true };
+      }
+      return project;
+    });
+
+    setProject(updatedProjects);
+
+    console.log(`프로젝트 ID ${projectIdToDisplay}에 대한 오픈 알림 신청`);
+  };
+
+  // 오픈 알림 취소
+  const handleCancelOpenNotification = async (projectIdToDisplay) => {
+    await updateDoc(doc(db, 'projects', projectIdToDisplay), { isNotificated: false });
+    const updatedProjects = projects.map((project) => {
+      if (project.id === projectIdToDisplay) {
+        return { ...project, isNotificated: false };
+      }
+      return project;
+    });
+
+    setProject(updatedProjects);
+
+    console.log(`프로젝트 ID ${projectIdToDisplay}에 대한 오픈 알림 취소`);
+  };
 
   const handleTabClick = (tab) => {
     setActivePostTab(tab);
@@ -161,27 +168,31 @@ function Post({ activeNavTab, setActiveNavTab }) {
       <Navbar activeNavTab={activeNavTab} setActiveNavTab={setActiveNavTab} />
       <ProjectIntroduction>
         <ImageBox>
-          <img src="assets" alt="" />
+          <img src={foundProject.mainImage} width="500px" height="298px" alt={foundProject.title} />
         </ImageBox>
+
         <TitleBox>
-          <Title>[캣닢 장난감] 고양이를 사랑한 오렌지</Title>
-          <SubTitle>
-            프로젝트 설명프로젝트 설명프로젝트 설명프로젝트 설명프로젝트 설명프로젝트 설명 프로젝트 설명 프로젝트
-            설명프로젝트 설명프로젝트 설명프로설명프로젝트 설명프로설명프로젝트 설명프로명프로명프로명프로명프로
-          </SubTitle>
-          <Achieve>
-            <div>
-              <PointText color="var(--main-color)">98%</PointText> 달성
-            </div>
-            <div>
-              <PointText color="var(--sub-color)">123123</PointText>원 모금
-            </div>
-          </Achieve>
-          <InProgress>
-            <input placeholder="후원 금액을 입력해주세요." />
-            <SponsorBtn>후원하기</SponsorBtn>
-            <HeartButton />
-          </InProgress>
+          <Title>{foundProject.title}</Title>
+          <SubTitle>{foundProject.summary}</SubTitle>
+
+          {activeNavTab === 'scheduled' ? (
+            <>
+              <ScheduledNotification
+                projects={projects}
+                onApplyOpenNotification={handleApplyOpenNotification}
+                onCancelOpenNotification={handleCancelOpenNotification}
+              />
+            </>
+          ) : (
+            <>
+              <SponsorBtn
+                activeNavTab={activeNavTab}
+                projects={projects}
+                receiptPrice={receiptPrice}
+                setReceiptPrice={setReceiptPrice}
+              />
+            </>
+          )}
         </TitleBox>
       </ProjectIntroduction>
       <PostTab>
@@ -189,43 +200,22 @@ function Post({ activeNavTab, setActiveNavTab }) {
           프로젝트 설명
         </TabItem>
         <TabItem activePostTab={activePostTab === 'comments'} onClick={() => handleTabClick('comments')}>
-          댓글
+          서포터
         </TabItem>
       </PostTab>
       <Hr />
       <BottomBox>
         {activePostTab === 'project' ? (
-          <ProjectInfoContainer>
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Maiores laborum ullam reprehenderit repellendus
-            eius veritatis voluptatibus exercitationem mollitia inventore delectus culpa nulla ducimus enim, porro
-            reiciendis! Animi ratione et adipisci. Quod amet consequuntur voluptatibus aliquid cum alias molestias
-            ratione fugit soluta quis sit, minima praesentium. Quia sint iusto repellat maiores, a, blanditiis facere
-            magni numquam dolores necessitatibus, sequi ipsam aperiam. Neque optio pariatur deleniti facere aliquid odio
-            soluta reiciendis nesciunt necessitatibus ullam nisi in voluptatum animi earum voluptates voluptate, dolor
-            laborum repellat fuga officiis ad minima tempora rerum. Maxime, sunt! Autem molestias magnam sunt officia
-            unde, quaerat incidunt ullam deserunt minus tenetur maiores corrupti! Aspernatur, itaque doloribus labore
-            esse
-          </ProjectInfoContainer>
+          <ProjectInfoContainer dangerouslySetInnerHTML={dangerousHTML} />
         ) : (
           <>
-            <CommentContainer>
-              <CommentImage src={DefaultUser} alt="User Profile" />
-              <CommentText>
-                박시은님이 <FontWeight>165,000원</FontWeight> 펀딩했어요.
-              </CommentText>
-            </CommentContainer>
-            <CommentContainer>
-              <CommentImage src={DefaultUser} alt="User Profile" />
-              <CommentText>
-                박시은님이 <FontWeight>165,000원</FontWeight> 펀딩했어요.
-              </CommentText>
-            </CommentContainer>
-            <CommentContainer>
-              <CommentImage src={DefaultUser} alt="User Profile" />
-              <CommentText>
-                박시은님이 <FontWeight>165,000원</FontWeight> 펀딩했어요.
-              </CommentText>
-            </CommentContainer>
+            {activeNavTab === 'scheduled' && <ScheduledComments />}
+            {activeNavTab === 'inProgress' && (
+              <>
+                <SponsorList />
+              </>
+            )}
+            {activeNavTab === 'completed' && <SponsorList />}
           </>
         )}
       </BottomBox>

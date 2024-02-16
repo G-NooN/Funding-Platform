@@ -12,6 +12,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from 'components/common/Navbar';
 import styled from 'styled-components';
+import google from 'assets/google.png';
+import github from 'assets/github.png';
 
 function Login({ activeNavTab, setActiveNavTab }) {
   const [email, setEmail] = useState('');
@@ -45,7 +47,7 @@ function Login({ activeNavTab, setActiveNavTab }) {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       console.log(userCredential);
       alert('로그인 되었습니다.');
-      navigate('/main');
+      navigate('/');
     } catch (error) {
       const errorCode = error.code;
       const errorMessage = error.message;
@@ -124,7 +126,8 @@ function Login({ activeNavTab, setActiveNavTab }) {
       console.log('user', userCredential.user);
 
       alert('로그인 되었습니다.');
-      navigate('/main');
+      setActiveNavTab('inProgress');
+      navigate('/');
     } catch (error) {
       const errorCode = error.code;
       const errorMessage = error.message;
@@ -163,7 +166,7 @@ function Login({ activeNavTab, setActiveNavTab }) {
       console.log('user', userCredential.user);
 
       alert('로그인 되었습니다.');
-      navigate('/main');
+      navigate('/');
     } catch (error) {
       const errorCode = error.code;
       const errorMessage = error.message;
@@ -173,11 +176,11 @@ function Login({ activeNavTab, setActiveNavTab }) {
 
   return (
     <>
-      <Navbar />
+      <Navbar activeNavTab={activeNavTab} setActiveNavTab={setActiveNavTab} />
+
       <Body>
         <LoginContainer>
           <LoginTitle>이메일로 로그인</LoginTitle>
-
           <div>
             <LoginToSignUp>
               <p>아직 계정이 없으신가요? &nbsp;</p>
@@ -227,8 +230,14 @@ function Login({ activeNavTab, setActiveNavTab }) {
             </LoginWithOtherMethodPTag>
 
             <LoginWithOtherMethodButtonSet>
-              <button onClick={handleGoogleLogin}>구글로 로그인</button>
-              <button onClick={handleGithubLogin}>깃허브로 로그인</button>
+              <button onClick={handleGoogleLogin}>
+                <img src={google} alt="구글로고" />
+                구글로 로그인
+              </button>
+              <button onClick={handleGithubLogin}>
+                <img src={github} alt="깃허브로고" />
+                깃허브로 로그인
+              </button>
             </LoginWithOtherMethodButtonSet>
           </LoginWithOtherMethod>
         </LoginContainer>
@@ -280,7 +289,7 @@ const LoginToSignUp = styled.div`
 
   & a {
     font-weight: 550;
-    color: var(--main-color);
+    color: var(--main-color) !important;
   }
 `;
 
@@ -330,6 +339,12 @@ const LoginButton = styled.button`
   border: 1.5px solid rgb(228, 228, 228);
   border-radius: 30px;
   cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+
+  &:hover {
+    background-color: #274eff;
+    color: white;
+  }
 `;
 
 const LoginErrorMessage = styled.p`
@@ -381,7 +396,7 @@ const LoginWithOtherMethodButtonSet = styled.div`
 
   & button {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-evenly;
     width: 100%;
     padding: 12px;
     border: 1.5px solid rgb(228, 228, 228);
@@ -389,5 +404,15 @@ const LoginWithOtherMethodButtonSet = styled.div`
     font-size: 14px;
     font-weight: 550;
     cursor: pointer;
+
+    &:hover {
+      transition: background-color 0.3s, color 0.3s;
+      background-color: rgb(228, 228, 228);
+    }
+
+    & img {
+      width: 20px;
+      height: 20px;
+    }
   }
 `;
